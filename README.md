@@ -59,14 +59,17 @@ Cargo vessels operate offline for **14-21 days** during transpacific voyages. Du
 ## ⚔️ Conflict Resolution Strategy
 
 ```
-IF field is physical_status:
-    → Vessel authority (captain is on-site)
-ELSE IF field is customs_clearance:
-    → Shore authority (compliance team owns this)
-ELSE:
-    → Last-write-wins with full audit trail
-    
-ALWAYS: Store both versions for audit compliance
+ALWAYS: Store BOTH versions as concurrent siblings
+
+DEFAULT RESOLUTION (auto-applied):
+  IF field is physical_status:
+      → Vessel authority (captain is on-site)
+  ELSE IF field is customs_clearance:
+      → Shore authority (compliance team owns this)
+
+USER OVERRIDE:
+  → User can view both versions and manually choose winner
+  → Full audit trail preserved regardless of resolution method
 ```
 
 ## 🔄 Sync State Machine
