@@ -1,96 +1,117 @@
-# Distributed Sync & Conflict Resolution: The Offline-First Handbook
+# Offline Asset Synchronization System
 
-This repository provides a rigorous architectural framework for building robust **Offline-Asset-Synchronization** systems. In distributed environments, the core tension lies between local autonomy and global consistency. This handbook dissects the strategies required to manage state across disconnected nodes using an **AP-focused (Availability and Partition Tolerance)** approach under the CAP theorem.
+System design for synchronizing cargo ship inventory data between vessels and shore operations, handling extended offline periods, satellite bandwidth constraints, and domain-aware conflict resolution.
+
+## 🎯 Problem Statement
+
+Cargo vessels operate offline for **14-21 days** during transpacific voyages. During this time, both vessel crews and shore managers need to track and update container inventory. When vessels reconnect via expensive satellite links ($10/MB), the system must:
+
+- Sync thousands of container status changes efficiently
+- Resolve conflicts when both sides edited the same record
+- Prioritize safety-critical data over routine logs
+- Handle network failures gracefully
+
+## 📋 Design Documents
+
+| Document | Description |
+|----------|-------------|
+| [01_problem_definition.md](./01_problem_definition.md) | Requirements, constraints, user roles, conflict scenarios |
+| [02_Architecture.md](./02_Architecture.md) | System components, data flows, Mermaid diagrams, design decisions |
+| 03_Data_Model.md | Database schemas, sync metadata, version tracking *(coming soon)* |
+| 04_Sync_Protocol.md | API contracts, payload formats, sync algorithm *(coming soon)* |
+| 05_Failure_Handling.md | Retry logic, circuit breakers, dead letter queues *(coming soon)* |
+| 06_Operations.md | Monitoring, alerting, runbooks, cost analysis *(coming soon)* |
+
+## 🏗️ Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         VESSEL SIDE                                  │
+│   📱 Tablet UI  →  ⚙️ Sync Engine  →  💾 SQLite  →  📋 Change Queue │
+└─────────────────────────────────────────────────────────────────────┘
+                                │
+                                │ 🛰️ Satellite (128kbps, $10/MB)
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                         SHORE SIDE                                   │
+│   ⚖️ Load Balancer  →  🔌 REST API  →  🐘 PostgreSQL  →  ⚔️ Resolver│
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## 🔑 Key Design Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Vessel Database | SQLite | Lightweight, zero-config, works offline |
+| Transport Protocol | REST/HTTPS | Stateless, retry-friendly for unreliable satellite |
+| Sync Strategy | Delta + Compression | 97% bandwidth reduction ($500 → $12/day) |
+| Conflict Resolution | Domain-aware rules | Physical status → vessel wins, Docs → shore wins |
+
+## 📊 Bandwidth Optimization
+
+| Technique | Reduction |
+|-----------|-----------|
+| Delta sync (changes only) | 80% |
+| Gzip compression | 85% |
+| Priority queuing | 20% |
+| **Total: 50MB → 1.2MB** | **97.6%** |
+
+## ⚔️ Conflict Resolution Strategy
+
+```
+IF field is physical_status:
+    → Vessel authority (captain is on-site)
+ELSE IF field is customs_clearance:
+    → Shore authority (compliance team owns this)
+ELSE:
+    → Last-write-wins with full audit trail
+    
+ALWAYS: Store both versions for audit compliance
+```
+
+## 🔄 Sync State Machine
+
+```
+IDLE → CHECKING → PREPARING → PUSHING → PROCESSING → COMPLETE
+                                ↓
+                            RETRYING (exponential backoff)
+                                ↓
+                             FAILED (dead letter queue)
+```
+
+## 📈 Scale Specifications
+
+| Parameter | Value |
+|-----------|-------|
+| Fleet size | 100 vessels |
+| Containers per vessel | 2,000 average |
+| Offline duration | Up to 21 days |
+| Daily data per vessel | ~50MB (raw), ~1.2MB (optimized) |
+| Sync time | < 5 minutes over satellite |
+
+## 🛡️ Failure Handling
+
+- **Network drops**: Checkpoint + resume from last successful record
+- **Corrupt payload**: SHA-256 checksum validation
+- **Version conflicts**: Domain-aware resolution with manual override
+- **Shore outage**: Circuit breaker with exponential backoff
+- **Disk full**: Prune old sync logs, alert user
+
+## 🧠 Concepts Demonstrated
+
+- **CAP Theorem**: AP system with eventual consistency
+- **CRDTs**: State-based conflict-free data types
+- **Vector Clocks**: Logical ordering for distributed events
+- **Circuit Breaker**: Failure isolation pattern
+- **Dead Letter Queue**: Permanent failure handling
+- **Exponential Backoff**: Retry strategy with jitter
+
+## 📚 References
+
+- [Martin Kleppmann - Designing Data-Intensive Applications](https://dataintensive.net/)
+- [CAP Theorem Explained](https://www.ibm.com/topics/cap-theorem)
+- [CRDTs: Conflict-free Replicated Data Types](https://crdt.tech/)
 
 ---
 
-## 1. The Core Tension: AP Over Consistency
-
-In an offline-first architecture, systems must prioritize **Availability** (allowing users to work without a connection) and **Partition Tolerance** (surviving network drops). This necessitates the sacrifice of immediate consistency in favor of **Eventual Consistency**.
-
-### The Five-Question Design Framework
-
-Before selecting an architecture, every system must be audited against these first principles:
-
-1. **Data Shape:** Is it structured, document-based, or binary?
-2. **Conflict Semantics:** What is the business cost of a lost update?
-3. **Connectivity Patterns:** Is it "occasionally offline" or "mostly offline"?
-4. **Data Volume:** Are we syncing deltas or full state?
-5. **Ordering Requirements:** Is causality preservation required?
-
----
-
-## 2. System Architecture
-
-A resilient sync system is organized into a four-layer mental model.
-
-| Layer | Responsibility | Key Components |
-| --- | --- | --- |
-| **Presentation** | User feedback & manual resolution | Conflict UI, sync status indicators |
-| **Application** | Business logic & sync triggers | Change detection logic, data validation |
-| **Sync Engine** | The "Brain" | Batching, queuing, conflict detection |
-| **Storage** | Data persistence | SQLite/IndexedDB, Version Vectors, UUIDs |
-
-### The Sync State Machine
-
-Sync operations must follow a strict state machine to prevent race conditions and data corruption.
-
----
-
-## 3. Conflict Resolution Strategies
-
-The choice of strategy determines the system's integrity and user experience.
-
-* **Last-Write-Wins (LWW):** Uses the highest timestamp. Simple, but risks silent data loss due to clock skew.
-* **First-Write-Wins (FWW):** The server rejects any update not based on the current authoritative version.
-* **Field-Level Merge:** Merges changes if they affect different attributes within the same record.
-* **CRDTs (Conflict-free Replicated Data Types):** Mathematically guaranteed convergence (e.g., G-Counters, OR-Sets) without a central coordinator.
-* **Operational Transformation (OT):** Complex transformation of operations, typically for real-time collaborative text editing.
-
----
-
-## 4. Sync Algorithms & Resilience
-
-### Delta Sync vs. Full Sync
-
-Systems should utilize **Delta Sync** via **Sync Tokens** (opaque cursors) to minimize bandwidth. Full sync should remain strictly as a recovery fallback for corrupted local states.
-
-### Idempotency and Retries
-
-All sync endpoints **must** be idempotent. Network failures during a sync response often lead to duplicate requests. Use client-generated request IDs to deduplicate operations on the server.
-
-### Failure Recovery: Exponential Backoff
-
-To prevent "thundering herd" failures when service resumes, implement exponential backoff with jitter:
-
-### The Circuit Breaker Pattern
-
-If the failure rate exceeds a defined threshold (e.g., 5% over 1 minute), the sync engine must enter the **OPEN** state, immediately rejecting requests to allow the backend to recover.
-
----
-
-## 5. Observability & Operations
-
-A sync system without metrics is a black box waiting to fail. Track these four pillars:
-
-1. **Sync Lag:** Time delta between local change and global visibility ( hour is critical).
-2. **Conflict Rate:** Percentage of syncs requiring resolution logic ( indicates UI/UX friction).
-3. **Failure Rate:** Percentage of 4xx/5xx responses.
-4. **Queue Depth:** Number of pending local changes.
-
-### Dead Letter Queue (DLQ)
-
-Permanent failures (e.g., schema mismatches or unresolvable business rule violations) must be moved to a DLQ for manual intervention or administrative audit, preventing them from blocking the primary sync queue.
-
----
-
-## 6. Strategic Interview Framework (SCAR)
-
-When defending this architecture in a technical review or interview:
-
-* **S (Scope):** Define the data volume and connectivity constraints.
-* **C (Core Architecture):** Explain the 4-layer model and UUID strategy.
-* **A (Algorithms):** Justify your choice of LWW vs. CRDT based on business cost.
-* **R (Resilience):** Detail the circuit breaker and idempotency strategy.
-
----
+*This is a system design project demonstrating senior-level distributed systems architecture for offline-first applications.*
