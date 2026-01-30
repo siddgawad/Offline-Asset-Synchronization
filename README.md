@@ -109,12 +109,4 @@ IDLE → CHECKING → PREPARING → PUSHING → PROCESSING → COMPLETE
 - **Dead Letter Queue**: Permanent failure handling
 - **Exponential Backoff**: Retry strategy with jitter
 
-## 📚 References
 
-- [Martin Kleppmann - Designing Data-Intensive Applications](https://dataintensive.net/)
-- [CAP Theorem Explained](https://www.ibm.com/topics/cap-theorem)
-- [CRDTs: Conflict-free Replicated Data Types](https://crdt.tech/)
-
----
-
-*This is a system design project demonstrating senior-level distributed systems architecture for offline-first applications.*
