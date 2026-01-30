@@ -3,73 +3,59 @@
 ## System Overview
 
 ```mermaid
-mindmap
-  root((Offline Asset Sync))
-    Entities
-      Containers
-      Goods
-      Documents
-    Users
-      Captain
-      Cargo Officer
-      Shore Manager
-    Constraints
-      21 days offline
-      128kbps satellite
-      $10/MB bandwidth
-    Risks
-      $50K customs fines
-      Cargo seizure
-      Safety incidents
+flowchart TB
+    subgraph SYSTEM["🚢 OFFLINE ASSET SYNC SYSTEM"]
+        direction TB
+        
+        subgraph ENTITIES["📦 Entities"]
+            E1["Containers"]
+            E2["Goods"]
+            E3["Documents"]
+        end
+        
+        subgraph USERS["👥 Users"]
+            U1["Captain"]
+            U2["Cargo Officer"]
+            U3["Shore Manager"]
+        end
+        
+        subgraph CONSTRAINTS["⚠️ Constraints"]
+            C1["21 days offline"]
+            C2["128kbps satellite"]
+            C3["$10/MB bandwidth"]
+        end
+        
+        subgraph RISKS["🔴 Risks"]
+            R1["$50K customs fines"]
+            R2["Cargo seizure"]
+            R3["Safety incidents"]
+        end
+    end
 ```
 
 ---
 
 ## Data Model Overview
 
+| Entity | Fields |
+|--------|--------|
+| **VESSEL** | vessel_id (PK), name, imo_number, current_route, last_sync |
+| **CONTAINER** | container_id (PK), vessel_id (FK), iso_size_code, seal_number, status, gps_location, version, updated_at |
+| **GOODS** | goods_id (PK), container_id (FK), description, quantity, weight_kg, value_usd, status |
+| **DOCUMENT** | doc_id (PK), container_id (FK), doc_type, content, clearance_status |
+
+### Relationships
+
 ```mermaid
-erDiagram
-    VESSEL ||--o{ CONTAINER : carries
-    CONTAINER ||--o{ GOODS : contains
-    CONTAINER ||--o{ DOCUMENT : has
-    CONTAINER ||--o{ STATUS_CHANGE : logs
+flowchart LR
+    VESSEL["🚢 VESSEL"] --> CONTAINER["📦 CONTAINER"]
+    CONTAINER --> GOODS["📋 GOODS"]
+    CONTAINER --> DOCUMENT["📄 DOCUMENT"]
+    CONTAINER --> STATUS["🔄 STATUS_CHANGE"]
     
-    VESSEL {
-        uuid vessel_id PK
-        string name
-        string imo_number
-        string current_route
-        timestamp last_sync
-    }
-    
-    CONTAINER {
-        uuid container_id PK
-        uuid vessel_id FK
-        string iso_size_code
-        string seal_number
-        enum status
-        point gps_location
-        int version
-        timestamp updated_at
-    }
-    
-    GOODS {
-        uuid goods_id PK
-        uuid container_id FK
-        string description
-        decimal quantity
-        decimal weight_kg
-        decimal value_usd
-        enum status
-    }
-    
-    DOCUMENT {
-        uuid doc_id PK
-        uuid container_id FK
-        enum doc_type
-        blob content
-        enum clearance_status
-    }
+    VESSEL -->|"1 : many"| CONTAINER
+    CONTAINER -->|"1 : many"| GOODS
+    CONTAINER -->|"1 : many"| DOCUMENT
 ```
 
 ---
