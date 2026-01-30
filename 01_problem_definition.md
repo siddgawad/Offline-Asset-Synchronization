@@ -5,6 +5,7 @@
 ```mermaid
 flowchart TB
     subgraph SYSTEM["🚢 OFFLINE ASSET SYNC SYSTEM"]
+    
         direction TB
         
         subgraph ENTITIES["📦 Entities"]
