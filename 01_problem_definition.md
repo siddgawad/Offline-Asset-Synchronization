@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart TB
-    subgraph SYSTEM["🚢 OFFLINE ASSET SYNC SYSTEM"]
+    subgraph SYSTEM["OFFLINE ASSET SYNC SYSTEM"]
     
         direction TB
         
