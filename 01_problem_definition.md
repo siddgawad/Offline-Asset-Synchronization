@@ -4,33 +4,28 @@
 
 ```mermaid
 flowchart TB
-    subgraph SYSTEM["OFFLINE ASSET SYNC SYSTEM"]
+    subgraph ENTITIES["📦 Entities"]
+        E1["Containers"]
+        E2["Goods"]
+        E3["Documents"]
+    end
     
-        direction TB
-        
-        subgraph ENTITIES["📦 Entities"]
-            E1["Containers"]
-            E2["Goods"]
-            E3["Documents"]
-        end
-        
-        subgraph USERS["👥 Users"]
-            U1["Captain"]
-            U2["Cargo Officer"]
-            U3["Shore Manager"]
-        end
-        
-        subgraph CONSTRAINTS["⚠️ Constraints"]
-            C1["21 days offline"]
-            C2["128kbps satellite"]
-            C3["$10/MB bandwidth"]
-        end
-        
-        subgraph RISKS["🔴 Risks"]
-            R1["$50K customs fines"]
-            R2["Cargo seizure"]
-            R3["Safety incidents"]
-        end
+    subgraph USERS["👥 Users"]
+        U1["Captain"]
+        U2["Cargo Officer"]
+        U3["Shore Manager"]
+    end
+    
+    subgraph CONSTRAINTS["⚠️ Constraints"]
+        C1["21 days offline"]
+        C2["128kbps satellite"]
+        C3["$10/MB bandwidth"]
+    end
+    
+    subgraph RISKS["🔴 Risks"]
+        R1["$50K customs fines"]
+        R2["Cargo seizure"]
+        R3["Safety incidents"]
     end
 ```
 
